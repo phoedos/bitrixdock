@@ -14,11 +14,23 @@ services:
         networks:
             - bitrixdock
         restart: unless-stopped
+        healthcheck:
+            test: ["CMD-SHELL", "php --ini || exit 1"]
+            interval: 30s
+            timeout: 10s
+            retries: 10
+            start_period: 10s  
+        depends_on:
+            db: 
+             condition: service_healthy    
 
     web_server:
         build: ./${WEB_SERVER_TYPE}
         depends_on:
             - source
+            - memcached
+            - php
+            - db
         volumes_from:
             - source
         ports:
@@ -33,6 +45,12 @@ services:
         stdin_open: true
         tty: true
         restart: unless-stopped
+        healthcheck:
+            test: ["CMD-SHELL", "curl -f http://localhost || exit 1"]
+            interval: 30s
+            timeout: 10s
+            retries: 10
+            start_period: 10s
 
     db:
         build: ./${DB_SERVER_TYPE}
@@ -54,6 +72,12 @@ services:
         stdin_open: true
         tty: true
         restart: unless-stopped
+        healthcheck:
+            test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -u $$MYSQL_USER --password=$$MYSQL_PASSWORD"]
+            interval: 10s
+            timeout: 5s
+            retries: 10
+      
 
     memcached:
         image: memcached:latest
@@ -81,6 +105,9 @@ services:
         tty: true
         networks:
             - bitrixdock
+        depends_on:
+            db: 
+             condition: service_healthy
 
     source:
         image: alpine:latest
